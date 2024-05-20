@@ -27,10 +27,11 @@ app.post('/table-create', async (req, res) => {
   const fullTableName = `${app_name}__${tableName}`;
 
   try {
-    const connection = await pool.getConnection();
-    await connection.query(query.replace(tableName, fullTableName));
-    connection.release();
-    res.send(`Table ${fullTableName} created successfully`);
+    // const connection = await pool.getConnection();
+    // await connection.query(query.replace(tableName, fullTableName));
+    // connection.release();
+    // res.send(`Table ${fullTableName} created successfully`);
+    res.send(`ready`);
   } catch (error) {
     res.status(500).send(error.message);
   }
