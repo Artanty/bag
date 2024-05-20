@@ -1,7 +1,12 @@
 const express = require('express');
 const app = express();
 app.use(express.json());
+const cors = require('cors');
+const bodyParser = require('body-parser');
 const pool = require('./core/db_connection')
+app.use(cors());
+app.use(bodyParser.json());
+const fs = require('fs').promises; // Use promises for fs to handle asynchronous operations
 
 // Middleware to check if the request method is POST
 // app.use((req, res, next) => {
