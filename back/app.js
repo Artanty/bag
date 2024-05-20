@@ -14,7 +14,9 @@ const pool = require('./core/db_connection')
 
 app.get('/get-updates', async (req, res) => {
   try {
-    res.send(`ready`);
+    // res.send(`ready`);
+    const [rows] = await pool.query('SELECT * FROM NOY__requests');
+    res.json(rows);
   } catch (error) {
     res.status(500).send(error.message);
   }
