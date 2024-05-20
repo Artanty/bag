@@ -1,7 +1,12 @@
 const express = require('express');
 const app = express();
 app.use(express.json());
-const pool = require('./core/db_connection')
+const cors = require('cors');
+const bodyParser = require('body-parser');
+const pool = require('core/db_connection')
+app.use(cors());
+app.use(bodyParser.json());
+const fs = require('fs').promises; // Use promises for fs to handle asynchronous operations
 
 // Middleware to check if the request method is POST
 // app.use((req, res, next) => {
@@ -17,6 +22,15 @@ app.get('/get-updates', async (req, res) => {
     // res.send(`ready`);
     const [rows] = await pool.query('SELECT * FROM NOY__requests');
     res.json(rows);
+  } catch (error) {
+    res.status(500).send(error.message);
+  }
+});
+app.get('/get-db', async (req, res) => {
+  try {
+    // res.send(`ready`);
+    // const [rows] = await pool.query('SELECT * FROM NOY__requests');
+    res.json(process.env.DB_DATABASE);
   } catch (error) {
     res.status(500).send(error.message);
   }

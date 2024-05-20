@@ -4,14 +4,18 @@
   "description": "",
   "main": "app.js",
   "scripts": {
+    "start": "node app.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
   "author": "Artyom",
   "license": "ISC",
   "dependencies": {
+    "body-parser": "^1.19.0",
+    "cors": "^2.8.5",
     "dotenv": "^16.4.1",
     "express": "^4.19.2",
+    "mysql": "^2.18.1",
     "mysql2": "^3.9.7"
   }
 }
