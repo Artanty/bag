@@ -31,7 +31,9 @@ app.post('/table-create', async (req, res) => {
     // await connection.query(query.replace(tableName, fullTableName));
     // connection.release();
     // res.send(`Table ${fullTableName} created successfully`);
-    res.send(`ready`);
+    const [rows] = await pool.query('SELECT * FROM NOY__requests');
+    res.json(rows);
+    // res.send(`ready`);
   } catch (error) {
     res.status(500).send(error.message);
   }
