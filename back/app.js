@@ -16,7 +16,7 @@ const fs = require('fs').promises; // Use promises for fs to handle asynchronous
 //     res.status(405).send('Only POST requests are allowed');
 //   }
 // });
-
+const DB_NAME = 'cs99850_bag'
 app.get('/get-updates', async (req, res) => {
   try {
     // res.send(`ready`);
@@ -81,6 +81,73 @@ app.post('/table-query', async (req, res) => {
     } else {
       res.status(500).send(error.message);
     }
+  }
+});
+
+app.post('/status', async (req, res) => {
+  try {
+        // Get check type and tables from request body
+    const { check, tables } = req.body;
+
+    // Validate check and tables
+    if (!check || !Array.isArray(check)) {
+      return res.status(400).json({ error: 'Missing or invalid "check" in the request body' });
+    }
+
+    // Tables are required only if 'tableExist' is specified in check
+    if (check.includes('tableExist') && (!tables || !Array.isArray(tables))) {
+      return res.status(400).json({ error: 'Missing or invalid "tables" in the request body' });
+    }
+
+    // Get a connection from the pool
+    const connection = await pool.getConnection();
+
+    try {
+      // Check database connection if 'dbConnection' is specified
+      let dbConnectionStatus;
+      if (check.includes('dbConnection')) {
+        const [rows] = await connection.query('SELECT 1 + 1 AS solution');
+        dbConnectionStatus = rows[0].solution === 2 ? true : 'Database connection failed';
+        if (!dbConnectionStatus) {
+          return res.status(400).json({ error: 'Database connection failed' });
+        }
+      }
+
+      // Check table existence if 'tableExist' is specified
+      let tableExistsStatus = {};
+      if (check.includes('tableExist')) {
+        for (const tableName of tables) {
+          const [tableCheck] = await connection.query(`SELECT COUNT(*) as count FROM information_schema.tables 
+          WHERE table_schema = ? AND table_name = ?`, [DB_NAME, tableName]);
+          const tableExists = tableCheck[0].count > 0;
+          tableExistsStatus[tableName] = tableExists;
+        }
+
+        const allTablesExist = Object.values(tableExistsStatus).every(Boolean);
+        if (!allTablesExist) {
+          return res.status(400).json({ error: `Tables ${Object.entries(tableExistsStatus)
+            .filter(([_, value]) => value !== true)
+            .map(([key, _]) => key)
+            .join(', ')} do not exist` });
+        }
+      }
+      
+      const response = {};
+      if (check.includes('dbConnection')) {
+        response.dbConnectionStatus = dbConnectionStatus;
+      }
+      if (check.includes('tableExist')) {
+        response.tableExists = tableExistsStatus;
+      }
+
+      res.json(response);
+
+    } finally {
+      // Release the connection back to the pool
+      connection.release();
+    }
+  } catch (error) {
+    res.status(500).json({ error: 'An error occurred while checking the status' });
   }
 });
 
