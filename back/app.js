@@ -26,36 +26,22 @@ app.get('/get-updates', async (req, res) => {
     res.status(500).send(error.message);
   }
 });
-app.get('/get-db', async (req, res) => {
-  try {
-    // res.send(`ready`);
-    // const [rows] = await pool.query('SELECT * FROM NOY__requests');
-    res.json(process.env.DB_DATABASE);
-  } catch (error) {
-    res.status(500).send(error.message);
-  }
-});
 
-// Endpoint for table creation
 app.post('/table-create', async (req, res) => {
   const { app_name, query } = req.body;
   const tableName = query.match(/TABLE\s+(\w+)/i)[1];
   const fullTableName = `${app_name}__${tableName}`;
 
   try {
-    // const connection = await pool.getConnection();
-    // await connection.query(query.replace(tableName, fullTableName));
-    // connection.release();
-    // res.send(`Table ${fullTableName} created successfully`);
-    const [rows] = await pool.query('SELECT * FROM NOY__requests');
-    res.json(rows);
-    // res.send(`ready`);
+    const connection = await pool.getConnection();
+    await connection.query(query.replace(tableName, fullTableName));
+    connection.release();
+    res.send(`Table ${fullTableName} created successfully`);
   } catch (error) {
     res.status(500).send(error.message);
   }
 });
 
-// Endpoint for table update
 app.post('/table-update', async (req, res) => {
   const { app_name, query, DB_SYNC_MODE_FORCE } = req.body;
   const tableName = query.match(/ALTER TABLE\s+(\w+)/i)[1];
@@ -74,7 +60,6 @@ app.post('/table-update', async (req, res) => {
   }
 });
 
-// Endpoint for table query
 app.post('/table-query', async (req, res) => {
   const { app_name, query } = req.body;
   // Match table names in various SQL statements
