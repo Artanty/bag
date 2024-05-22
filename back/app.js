@@ -17,30 +17,15 @@ const fs = require('fs').promises; // Use promises for fs to handle asynchronous
 //   }
 // });
 const DB_NAME = 'cs99850_bag'
-app.get('/get-updates', async (req, res) => {
-  try {
-    // res.send(`ready`);
-    const [rows] = await pool.query('SELECT * FROM NOY__requests');
-    res.json(rows);
-  } catch (error) {
-    res.status(500).send(error.message);
-  }
-});
-
-app.post('/table-create', async (req, res) => {
-  const { app_name, query } = req.body;
-  const tableName = query.match(/TABLE\s+(\w+)/i)[1];
-  const fullTableName = `${app_name}__${tableName}`;
-
-  try {
-    const connection = await pool.getConnection();
-    await connection.query(query.replace(tableName, fullTableName));
-    connection.release();
-    res.send(`Table ${fullTableName} created successfully`);
-  } catch (error) {
-    res.status(500).send(error.message);
-  }
-});
+// app.get('/get-updates', async (req, res) => {
+//   try {
+//     // res.send(`ready`);
+//     const [rows] = await pool.query('SELECT * FROM NOY__requests');
+//     res.json(rows);
+//   } catch (error) {
+//     res.status(500).send(error.message);
+//   }
+// });
 
 app.post('/table-update', async (req, res) => {
   const { app_name, query, DB_SYNC_MODE_FORCE } = req.body;
@@ -61,20 +46,41 @@ app.post('/table-update', async (req, res) => {
 });
 
 app.post('/table-query', async (req, res) => {
-  const { app_name, query } = req.body;
-  // Match table names in various SQL statements
-  const tableNameMatch = query.match(/(?:INSERT INTO|UPDATE|DELETE FROM|FROM)\s+(\w+)/i);
-  if (!tableNameMatch) {
-    return res.status(400).send('Invalid SQL query: Could not find a table name');
-  }
-  const tableName = tableNameMatch[1];
-  const fullTableName = `${app_name}__${tableName}`;
+  console.log('table-query req url: ' + req.originalUrl)
+  let { app_name, query } = req.body;
 
+  if (query.trim().toUpperCase().startsWith('SELECT TABLE_NAME')) {
+    // Replace the table_schema placeholder with the actual database name from the environment variable
+    const dbName = process.env.DB_DATABASE;
+    query = query.replace('table_schema = ?', `table_schema = "${dbName}"`);
+    // Check for table_name IN (...) pattern and rename table names inside
+    const inPattern = /table_name\s+IN\s+\(([^)]+)\)/i;
+    const inMatch = query.match(inPattern);
+    if (inMatch) {
+      const tableNamesIn = inMatch[1].split(',').map(name => name.trim().replace(/['"]/g, ''));
+      const renamedTableNames = tableNamesIn.map(name => `'${app_name}__${name}'`).join(', ');
+      query = query.replace(inPattern, `table_name IN (${renamedTableNames})`);
+    }
+  } else if (query.trim().toUpperCase().startsWith('CREATE TABLE')) {
+    const tableName = query.match(/TABLE\s+(\w+)/i)[1];
+    const fullTableName = `${app_name}__${tableName}`;
+    query = query.replace(tableName, fullTableName)
+  } else {
+    // Match table names in various SQL statements
+    const tableNameMatch = query.match(/(?:INSERT INTO|UPDATE|DELETE FROM|FROM)\s+(\w+)/i);
+    if (!tableNameMatch) {
+      return res.status(400).send('Invalid SQL query: Could not find a table name');
+    }
+    const tableName = tableNameMatch[1];
+    const fullTableName = `${app_name}__${tableName}`;
+    query = query.replace(tableName, fullTableName)
+  }
+  console.log(query)
   try {
     const connection = await pool.getConnection();
-    const [rows] = await connection.query(query.replace(tableName, fullTableName));
+    const [rows] = await connection.query(query);
     connection.release();
-    res.json(rows);
+    res.json(rows)
   } catch (error) {
     if (error.code === 'ER_NO_SUCH_TABLE') {
       res.status(404).send(`Table ${fullTableName} doesn't exist, create table first by calling POST /table-create with app_name and query parameters`);
@@ -84,72 +90,9 @@ app.post('/table-query', async (req, res) => {
   }
 });
 
-app.post('/status', async (req, res) => {
-  try {
-        // Get check type and tables from request body
-    const { check, tables } = req.body;
-
-    // Validate check and tables
-    if (!check || !Array.isArray(check)) {
-      return res.status(400).json({ error: 'Missing or invalid "check" in the request body' });
-    }
-
-    // Tables are required only if 'tableExist' is specified in check
-    if (check.includes('tableExist') && (!tables || !Array.isArray(tables))) {
-      return res.status(400).json({ error: 'Missing or invalid "tables" in the request body' });
-    }
-
-    // Get a connection from the pool
-    const connection = await pool.getConnection();
-
-    try {
-      // Check database connection if 'dbConnection' is specified
-      let dbConnectionStatus;
-      if (check.includes('dbConnection')) {
-        const [rows] = await connection.query('SELECT 1 + 1 AS solution');
-        dbConnectionStatus = rows[0].solution === 2 ? true : 'Database connection failed';
-        if (!dbConnectionStatus) {
-          return res.status(400).json({ error: 'Database connection failed' });
-        }
-      }
-
-      // Check table existence if 'tableExist' is specified
-      let tableExistsStatus = {};
-      if (check.includes('tableExist')) {
-        for (const tableName of tables) {
-          const [tableCheck] = await connection.query(`SELECT COUNT(*) as count FROM information_schema.tables 
-          WHERE table_schema = ? AND table_name = ?`, [DB_NAME, tableName]);
-          const tableExists = tableCheck[0].count > 0;
-          tableExistsStatus[tableName] = tableExists;
-        }
-
-        const allTablesExist = Object.values(tableExistsStatus).every(Boolean);
-        if (!allTablesExist) {
-          return res.status(400).json({ error: `Tables ${Object.entries(tableExistsStatus)
-            .filter(([_, value]) => value !== true)
-            .map(([key, _]) => key)
-            .join(', ')} do not exist` });
-        }
-      }
-      
-      const response = {};
-      if (check.includes('dbConnection')) {
-        response.dbConnectionStatus = dbConnectionStatus;
-      }
-      if (check.includes('tableExist')) {
-        response.tableExists = tableExistsStatus;
-      }
-
-      res.json(response);
-
-    } finally {
-      // Release the connection back to the pool
-      connection.release();
-    }
-  } catch (error) {
-    res.status(500).json({ error: 'An error occurred while checking the status' });
-  }
-});
+app.get('/get-updates', async (req, res) => {
+  res.json({ BAG__STATUS: 'working' })
+})
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
