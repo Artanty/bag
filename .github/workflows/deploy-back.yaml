@@ -40,7 +40,7 @@ jobs:
         env:
           API_TOKEN_GITHUB: ${{ env.TARGET_GIT_TOKEN }}
         with:
-          source-directory: '.'
+          source-directory: './back'
           destination-github-username: ${{ env.TARGET_GIT_USER }}
           destination-repository-name: ${{ env.TARGET_GIT_REPO }}
           user-email: carles3@pina.cat
