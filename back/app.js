@@ -3,8 +3,8 @@ const app = express();
 app.use(express.json());
 const cors = require('cors');
 const bodyParser = require('body-parser');
-// const pool = require('./core/db_connection')
-const createDatabasePool = require('./core/db_connection')
+const pool = require('./core/db_connection')
+const loadEnvironmentVariables = require ('./core/env_provider')
 app.use(cors());
 app.use(bodyParser.json());
 const fs = require('fs').promises; // Use promises for fs to handle asynchronous operations
@@ -35,7 +35,6 @@ app.post('/table-update', async (req, res) => {
   const fullTableName = `${app_name}__${tableName}`;
 
   try {
-    const pool = await createDatabasePool()
     const connection = await pool.getConnection();
     if (DB_SYNC_MODE_FORCE) {
       await connection.query(`DELETE FROM ${fullTableName}`);
@@ -80,7 +79,6 @@ app.post('/table-query', async (req, res) => {
   }
   console.log(query)
   try {
-    const pool = await createDatabasePool()
     const connection = await pool.getConnection();
     const [rows] = await connection.query(query);
     connection.release();
@@ -102,11 +100,6 @@ app.get('/get-updates', async (req, res) => {
   res.json({ BAG__STATUS: 'working' })
 })
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-});
-
 async function getPublicIP() {
   try {
     const response = await axios.get('https://api.ipify.org?format=json');
@@ -116,3 +109,18 @@ async function getPublicIP() {
     return null;
   }
 }
+
+(async () => {
+  console.log('BEFORE loadEnvironmentVariables()')
+  await loadEnvironmentVariables();
+  console.log('AFTER loadEnvironmentVariables()')
+  const PORT = process.env.PORT || 3000;
+  app.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
+  });
+})();
+
+// const PORT = process.env.PORT || 3000;
+// app.listen(PORT, () => {
+//   console.log(`Server is running on port ${PORT}`);
+// });
