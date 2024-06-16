@@ -8,6 +8,7 @@ app.use(cors());
 app.use(bodyParser.json());
 const fs = require('fs').promises; // Use promises for fs to handle asynchronous operations
 const os = require('os');
+const axios = require('axios');
 // Middleware to check if the request method is POST
 // app.use((req, res, next) => {
 //   if (req.method === 'POST') {
