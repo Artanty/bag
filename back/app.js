@@ -82,6 +82,7 @@ app.post('/table-query', async (req, res) => {
     connection.release();
     res.json(rows)
   } catch (error) {
+    console.log(error)
     if (error.code === 'ER_NO_SUCH_TABLE') {
       res.status(404).send(`Table ${fullTableName} doesn't exist, create table first by calling POST /table-create with app_name and query parameters`);
     } else {
