@@ -36,7 +36,14 @@ async function loadEnvFromUrl() {
       }
     })
     .catch(error => {
-      console.error('Failed to fetch environment data after retries:', error);
+      if (error.name === 'AggregateError') {
+        console.error('Failed to fetch environment data after retries. Individual errors:');
+        error.errors.forEach((err, index) => {
+          console.error(`Error ${index + 1}:`, err);
+        });
+      } else {
+        console.error('Failed to fetch environment data:', error);
+      }
     });
   } catch (error) {
     console.error('Error fetching environment data from URL:', error);
