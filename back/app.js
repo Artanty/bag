@@ -3,7 +3,9 @@ const app = express();
 app.use(express.json());
 const cors = require('cors');
 const bodyParser = require('body-parser');
-const pool = require('./core/db_connection')
+const createPool = require('./core/db_connection')
+const checkDBConnection = require('./core/db_check_connection')
+
 const loadEnvironmentVariables = require ('./core/env_provider')
 app.use(cors());
 app.use(bodyParser.json());
@@ -35,6 +37,7 @@ app.post('/table-update', async (req, res) => {
   const fullTableName = `${app_name}__${tableName}`;
 
   try {
+    const pool = createPool()
     const connection = await pool.getConnection();
     if (DB_SYNC_MODE_FORCE) {
       await connection.query(`DELETE FROM ${fullTableName}`);
@@ -49,6 +52,7 @@ app.post('/table-update', async (req, res) => {
 
 app.post('/table-query', async (req, res) => {
   console.log('table-query req url: ' + req.originalUrl)
+  
   let { app_name, query } = req.body;
 
   if (query.trim().toUpperCase().startsWith('SELECT TABLE_NAME')) {
@@ -79,6 +83,7 @@ app.post('/table-query', async (req, res) => {
   }
   console.log(query)
   try {
+    const pool = createPool()
     const connection = await pool.getConnection();
     const [rows] = await connection.query(query);
     connection.release();
@@ -97,7 +102,7 @@ app.post('/table-query', async (req, res) => {
 });
 
 app.get('/get-updates', async (req, res) => {
-  res.json({ BAG__STATUS: 'working' })
+  res.json({ BAG__STATUS: 'working1', database: process.env.DB_DATABASE })
 })
 
 async function getPublicIP() {
@@ -111,16 +116,10 @@ async function getPublicIP() {
 }
 
 (async () => {
-  console.log('BEFORE loadEnvironmentVariables()')
   await loadEnvironmentVariables();
-  console.log('AFTER loadEnvironmentVariables()')
+  await checkDBConnection();
   const PORT = process.env.PORT || 3000;
   app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
   });
 })();
-
-// const PORT = process.env.PORT || 3000;
-// app.listen(PORT, () => {
-//   console.log(`Server is running on port ${PORT}`);
-// });

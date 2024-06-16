@@ -1,6 +1,7 @@
 
 const axios = require('axios');
 const retry = require('async-retry');
+require('dotenv').config();
 
 async function fetchEnvData() {
   return retry(async (bail, attempt) => {
@@ -9,7 +10,8 @@ async function fetchEnvData() {
         projectId: "bag@back",
         state: "RUNTIME"
       });
-      return response.data;
+      console.log('Environment data fetched successfully');
+      return response.data.data;
     } catch (error) {
       if (error.code === 'EAI_AGAIN') {
         console.log(`Attempt ${attempt} failed: DNS resolution error. Retrying...`);
@@ -24,13 +26,10 @@ async function fetchEnvData() {
   });
 }
 
-// Function to load environment variables from a URL
 async function loadEnvFromUrl() {
   try {
     return fetchEnvData()
     .then(envData => {
-      console.log('Environment data fetched successfully:', envData);
-      // const envData = response.data;
       for (const key in envData) {
         process.env[key] = envData[key];
       }
@@ -64,7 +63,7 @@ async function loadEnvironmentVariables() {
     console.log('local variables used')
     return loadEnvFromLocal();
   } else {
-    console.log('safe@ variables used')
+    console.log('Loading environment variables from safe@...')
     return await loadEnvFromUrl();
   }
 }
