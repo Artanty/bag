@@ -3,7 +3,8 @@ const app = express();
 app.use(express.json());
 const cors = require('cors');
 const bodyParser = require('body-parser');
-const pool = require('./core/db_connection')
+// const pool = require('./core/db_connection')
+const createDatabasePool = require('./core/db_connection')
 app.use(cors());
 app.use(bodyParser.json());
 const fs = require('fs').promises; // Use promises for fs to handle asynchronous operations
@@ -34,6 +35,7 @@ app.post('/table-update', async (req, res) => {
   const fullTableName = `${app_name}__${tableName}`;
 
   try {
+    const pool = await createDatabasePool()
     const connection = await pool.getConnection();
     if (DB_SYNC_MODE_FORCE) {
       await connection.query(`DELETE FROM ${fullTableName}`);
@@ -78,6 +80,7 @@ app.post('/table-query', async (req, res) => {
   }
   console.log(query)
   try {
+    const pool = await createDatabasePool()
     const connection = await pool.getConnection();
     const [rows] = await connection.query(query);
     connection.release();

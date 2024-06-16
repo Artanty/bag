@@ -52,4 +52,4 @@ async function createDatabasePool() {
   return mysql.createPool(dbConfig);
 }
 
-module.exports = createDatabasePool();
+module.exports = createDatabasePool;
