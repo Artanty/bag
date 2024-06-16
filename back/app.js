@@ -7,7 +7,7 @@ const pool = require('./core/db_connection')
 app.use(cors());
 app.use(bodyParser.json());
 const fs = require('fs').promises; // Use promises for fs to handle asynchronous operations
-
+const os = require('os');
 // Middleware to check if the request method is POST
 // app.use((req, res, next) => {
 //   if (req.method === 'POST') {
@@ -85,6 +85,8 @@ app.post('/table-query', async (req, res) => {
     console.log(error)
     if (error.code === 'ER_NO_SUCH_TABLE') {
       res.status(404).send(`Table ${fullTableName} doesn't exist, create table first by calling POST /table-create with app_name and query parameters`);
+    } else if (error.code === 'ECONNREFUSED') {
+      res.status(404).send(`Can't connect to database. Add IP of this backend: ${getServerIP()} to permitted.`);
     } else {
       res.status(500).send(error.message);
     }
@@ -99,3 +101,20 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
+
+function getServerIP() {
+  const interfaces = os.networkInterfaces();
+  for (const interfaceName in interfaces) {
+    const networkInterface = interfaces[interfaceName];
+    for (const iface of networkInterface) {
+      // Skip internal (loopback) addresses
+      if (iface.family === 'IPv4' && !iface.internal) {
+        return iface.address;
+      }
+    }
+  }
+  return 'No external IPv4 address found';
+}
+
+const serverIP = getServerIP();
+console.log('Server IP:', serverIP);
