@@ -86,7 +86,8 @@ app.post('/table-query', async (req, res) => {
     if (error.code === 'ER_NO_SUCH_TABLE') {
       res.status(404).send(`Table ${fullTableName} doesn't exist, create table first by calling POST /table-create with app_name and query parameters`);
     } else if (error.code === 'ECONNREFUSED') {
-      res.status(404).send(`Can't connect to database. Add IP of this backend: ${getServerIP()} to permitted.`);
+      const publicIP = await getPublicIP()
+      res.status(404).send(`Can't connect to database. Add IP of this backend: ${publicIP} to permitted.`);
     } else {
       res.status(500).send(error.message);
     }
@@ -102,19 +103,12 @@ app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
 
-function getServerIP() {
-  const interfaces = os.networkInterfaces();
-  for (const interfaceName in interfaces) {
-    const networkInterface = interfaces[interfaceName];
-    for (const iface of networkInterface) {
-      // Skip internal (loopback) addresses
-      if (iface.family === 'IPv4' && !iface.internal) {
-        return iface.address;
-      }
-    }
+async function getPublicIP() {
+  try {
+    const response = await axios.get('https://api.ipify.org?format=json');
+    return response.data.ip;
+  } catch (error) {
+    console.error('Error fetching public IP:', error);
+    return null;
   }
-  return 'No external IPv4 address found';
 }
-
-const serverIP = getServerIP();
-console.log('Server IP:', serverIP);
