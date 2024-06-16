@@ -38,7 +38,7 @@ async function loadEnvFromUrl() {
       if (error.name === 'AggregateError') {
         console.error('Failed to fetch environment data after retries. Individual errors:');
         error.errors.forEach((err, index) => {
-          console.error(`Error ${index + 1}:`, err);
+          console.error(`Error ${index + 1}:`, err.code);
         });
       } else {
         console.error('Failed to fetch environment data:', error);
