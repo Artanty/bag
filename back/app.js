@@ -20,7 +20,7 @@ const axios = require('axios');
 //     res.status(405).send('Only POST requests are allowed');
 //   }
 // });
-const DB_NAME = 'cs99850_bag'
+
 // app.get('/get-updates', async (req, res) => {
 //   try {
 //     // res.send(`ready`);
@@ -81,7 +81,7 @@ app.post('/table-query', async (req, res) => {
     const fullTableName = `${app_name}__${tableName}`;
     query = query.replace(tableName, fullTableName)
   }
-  console.log(query)
+
   try {
     const pool = createPool()
     const connection = await pool.getConnection();
@@ -101,9 +101,82 @@ app.post('/table-query', async (req, res) => {
   }
 });
 
+
+async function sendRuntimeEventToStat(triggerIP) {
+  try {
+    const payload = {
+      projectId: `${process.env.PROJECT_ID}@github`,
+      namespace: process.env.NAMESPACE,
+      stage: 'RUNTIME',
+      eventData: JSON.stringify(
+        {
+          triggerIP: triggerIP,
+          projectId: process.env.PROJECT_ID,
+          slaveRepo: process.env.SLAVE_REPO,
+          commit: process.env.COMMIT
+        }
+      )
+    }
+    await axios.post(`${process.env.STAT_URL}/add-event`, payload);
+    console.log(`SENT TO @stat: ${process.env.PROJECT_ID}@github -> ${process.env.SLAVE_REPO} | ${process.env.COMMIT}`)
+    return true
+  } catch (error) {
+    console.error('error in sendRuntimeEventToStat...');
+    if (axios.isAxiosError(error)) {
+      // Handle Axios-specific errors
+      const axiosError = error; // as AxiosError
+      console.error('Axios Error:', {
+          message: axiosError.message,
+          status: axiosError.response?.status,
+          statusText: axiosError.response?.statusText,
+          data: axiosError.response?.data,
+      });
+    } else {
+        // Handle generic errors
+        console.error('Unexpected Error:', error);
+    }
+    return false;
+  }
+}
+
+// Function to check if the current minute is one of [0, 15, 30, 45]
+function shouldRunStat(currentMinute) { // : boolean
+  return [1, 15, 30, 45].includes(currentMinute);
+}
+
+// Global variable to track the last minute when sendRuntimeEventToStat was called
+let lastExecutedMinute = null; // : number | null
+
+//(req: Request, res: Response) => {
 app.get('/get-updates', async (req, res) => {
-  res.json({ BAG__STATUS: 'working1', database: process.env.DB_DATABASE })
-})
+  const clientIP = req.ip;
+
+  // Parse URL parameters
+  const { stat } = req.query;
+
+  let sendToStatResult = false;
+
+  // Get the current minute
+  const now = new Date();
+  const currentMinute = now.getMinutes();
+
+  // Check if stat=true is in the URL params
+  if (stat === 'true') {
+      sendToStatResult = await sendRuntimeEventToStat(clientIP);
+  } else {
+      // If stat is not true, check the current time and whether the function was already called this minute
+      if (shouldRunStat(currentMinute) && lastExecutedMinute !== currentMinute) {
+          lastExecutedMinute = currentMinute; // Update the last executed minute
+          sendToStatResult = await sendRuntimeEventToStat(clientIP);
+      }
+  }
+
+  res.json({
+      trigger: clientIP,
+      PORT: process.env.PORT,
+      isSendToStat: sendToStatResult,
+  });
+});
 
 async function getPublicIP() {
   try {
@@ -116,7 +189,7 @@ async function getPublicIP() {
 }
 
 (async () => {
-  await loadEnvironmentVariables();
+  // await loadEnvironmentVariables();
   await checkDBConnection();
   const PORT = process.env.PORT || 3000;
   app.listen(PORT, () => {
